@@ -65,7 +65,7 @@ class gym2048(gym.Env):
 
     return self.state, {}
 
-  def step(self, action):
+  def afterstate(self, action):
     reward = 0.0
 
     mat = self.decode(self.state)
@@ -93,28 +93,32 @@ class gym2048(gym.Env):
     else:
       terminated = False
 
-      #if new_zero_count <= zero_count: #reward for a match, penalty otherwise
-      #  reward += float(2*(new_grid_value - grid_value))
-      #else:
-      #  reward += -1
-
-      #if new_max_tile > max_tile: #reward for increasing max tile value
-      #  reward += new_max_tile
-
       if merge_cpt > 0:
         reward += merge_cpt
       else:
         reward += -1
 
-      rand_new_tile = random.randrange(0,10)
-      if rand_new_tile == 0:
-        new_tile = 4
-      else:
-        new_tile = 2
-      rand_idx = random.randrange(0,len(zero_idx[0]))
-      new_mat[zero_idx[0][rand_idx], zero_idx[1][rand_idx]] = new_tile
+    observation = np.array(self.encode(new_mat), dtype=np.float32)
 
-    self.state = observation = np.array(self.encode(new_mat), dtype=np.float32)
+    return observation, reward, terminated, False, {}
+
+  def step(self, action):
+    observation, reward, terminated, _, _ = self.afterstate(action)
+
+    new_mat = self.decode(observation)
+
+    if not terminated:
+        zero_idx = np.where(new_mat == 0)
+
+        rand_new_tile = random.randrange(0,10)
+        if rand_new_tile == 0:
+            new_tile = 4
+        else:
+            new_tile = 2
+        rand_idx = random.randrange(0,len(zero_idx[0]))
+        new_mat[zero_idx[0][rand_idx], zero_idx[1][rand_idx]] = new_tile
+
+    self.state = np.array(self.encode(new_mat), dtype=np.float32)
 
     return self.state, reward, terminated, False, {}
 
