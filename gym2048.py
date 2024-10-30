@@ -65,10 +65,10 @@ class gym2048(gym.Env):
 
     return self.state, {}
 
-  def afterstate(self, action):
+  def afterstate(self, state, action):
     reward = 0.0
 
-    mat = self.decode(self.state)
+    mat = self.decode(state)
 
     #zero_count = np.sum(mat == 0)
     #grid_value = np.sum(mat)
@@ -103,7 +103,7 @@ class gym2048(gym.Env):
     return observation, reward, terminated, False, {}
 
   def step(self, action):
-    observation, reward, terminated, _, _ = self.afterstate(action)
+    observation, reward, terminated, _, _ = self.afterstate(self.state, action)
 
     new_mat = self.decode(observation)
 
