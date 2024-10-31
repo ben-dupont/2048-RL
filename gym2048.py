@@ -253,3 +253,12 @@ def check_game():
     test = np.array([0.,  0.,  8., 64., 0.,  4., 32.,  4., 0.,  0.,  0.,  8., 2.,  0.,  0., 4.]).reshape((4,4))
     result_down = np.array([0., 0., 0., 64., 0., 0., 0., 4., 0., 0., 8., 8., 2., 4., 32., 4.]).reshape((4,4))
     print(swipe(test,'down')[0]==result_down)
+
+    # Check afterstate
+    print("\n Check Afterstate \n")
+    env = gym2048()
+    state = env.encode(m)
+    print(env.decode(env.afterstate(state, 0)[0]) == mm_left)
+    print(env.decode(env.afterstate(state, 1)[0]) == mm_right)
+    print(env.decode(env.afterstate(state, 2)[0]) == mm_up)
+    print(env.decode(env.afterstate(state, 3)[0]) == mm_down)
