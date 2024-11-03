@@ -4,10 +4,11 @@ import numpy as np
 import random
 
 class gym2048(gym.Env):
-  def __init__(self):
+  def __init__(self, log_reward=False):
     self.n_grid = 4*4
     # custom class variable used to display the reward earned
     self.cumulative_reward = 0
+    self.log_reward = log_reward
 
     # observation space (valid ranges for observations in the state)
     self.observation_space = spaces.Box(shape=(16, 4, 4), low=0, high=1, dtype=np.float32)
@@ -94,7 +95,10 @@ class gym2048(gym.Env):
       terminated = False
 
       if merge_cpt > 0:
-        reward += merge_cpt
+        if self.log_reward:
+          reward += np.log2(merge_cpt)
+        else:
+          reward += merge_cpt
       else:
         reward += -1
 

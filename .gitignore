@@ -1,15 +1,9 @@
 /2014 - Temporal Difference Learning of N-Tuple Networks for the Game 2048 [Szubert, Jaskowski].pdf
 /2021 - Developing Value Networks for Game 2048 with Reinforcement Learning [Matsuzaki].pdf
-/DQN_CNN_2024_10_26
-/DQN_CNN_2024_10_27
-/TDL_CNN_2024_10_30
-/TDL_CNN_2024_10_31
-/TDL_CNN_2024_11_01
-/TDL_CNN_2024_11_01_1
-/TDL_CNN_2024_11_01_2
+/PPO_*
+/DQN_CNN_*
+/TDL_CNN_*
 /logs
-/PPO_2024_10_22
-/PPO_CNN_2024_10_24
-/PPO_CNN_2024_10_25
+/Papers
 /ppo_cnn_tensorboard
 /ppo_tensorboard
