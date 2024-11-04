@@ -46,7 +46,7 @@ class gym2048(gym.Env):
     
     return mat
 
-  def reset(self, seed=None):
+  def reset(self, seed=None, jump=1):
     super().reset(seed=seed)
     random.seed(seed)
 
@@ -56,7 +56,7 @@ class gym2048(gym.Env):
     index_2 = random.randrange(0, self.n_grid)
     while index_2 == index_1:
       index_2 = random.randrange(0, self.n_grid)
-    vec[index_1] = 2
+    vec[index_1] = 2 ** jump
     vec[index_2] = 2
 
     self.state = np.array(self.encode(vec.reshape((4,4))), dtype=np.float32)
