@@ -38,15 +38,12 @@ class gym2048(gym.Env):
     return tensor
 
   def decode(self, tensor):
-    # Input: 16x4x4 tensor
-    # Output: 4x4 matrice
-    # see https://www.jstage.jst.go.jp/article/ipsjjip/29/0/29_336/_pdf/-char/en
-    mat = np.zeros((4,4), dtype=np.float32)
-    for k in range(16):
-      for i in range(4):
-        for j in range(4):
-          if tensor[k,i,j] == 1:
-            mat[i,j] += 2**k
+    # Create a 4x4 matrix where each position accumulates the decoded value
+    powers_of_two = 2 ** np.arange(16, dtype=np.float32)[:, None, None]  # Shape: (16, 1, 1)
+    
+    # Multiply the input tensor with powers_of_two and sum over the first axis
+    mat = np.sum(tensor * powers_of_two, axis=0)  # Shape: (4, 4)
+    
     return mat
 
   def reset(self, seed=None):
