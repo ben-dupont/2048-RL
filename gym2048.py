@@ -85,10 +85,10 @@ class gym2048(gym.Env):
     if len(zero_idx[0]) == 0:
       #terminated = (mat == swipe(mat,0)).all() and (mat == swipe(mat,1)).all() and (mat == swipe(mat,2)).all() and (mat == swipe(mat,3)).all()
       terminated = True
-      reward += -100
+    #  reward += -100
     elif new_max_tile == 2048:
       terminated = True
-      reward += 1000
+    #  reward += 1000
     else:
       terminated = False
 
@@ -97,8 +97,8 @@ class gym2048(gym.Env):
           reward += np.log2(merge_cpt)
         else:
           reward += merge_cpt
-      else:
-        reward += -1
+      #else:
+      #  reward += -1
 
     observation = np.array(self.encode(new_mat), dtype=np.float32)
 
