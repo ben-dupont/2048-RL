@@ -69,68 +69,52 @@ class gym2048(gym.Env):
 
     mat = self.decode(state)
 
-    #zero_count = np.sum(mat == 0)
-    #grid_value = np.sum(mat)
-    #max_tile = np.max(mat)
-
     act = self.act_dict[action]
     new_mat, merge_cpt = swipe(mat, act)
 
-    #new_zero_count = np.sum(new_mat == 0)
-    #new_grid_value = np.sum(new_mat)
     new_max_tile = np.max(new_mat)
-    zero_idx = np.where(new_mat == 0)
-    #reach_2048 = np.where(new_mat == 2048)[0].size
+    zero_idx = np.where(new_mat == 0) 
 
-    if len(zero_idx[0]) == 0:
-      #terminated = (mat == swipe(mat,0)).all() and (mat == swipe(mat,1)).all() and (mat == swipe(mat,2)).all() and (mat == swipe(mat,3)).all()
-      terminated = True
-    #  reward += -100
-    elif new_max_tile == 2048:
-      terminated = True
-    #  reward += 1000
-    else:
-      terminated = False
-
-      if merge_cpt > 0:
-        if self.log_reward:
-          reward += np.log2(merge_cpt)
-        else:
-          reward += merge_cpt
-      #else:
-      #  reward += -1
+    if merge_cpt > 0:
+      if self.log_reward:
+        reward += np.log2(merge_cpt)
+      else:
+        reward += merge_cpt
 
     observation = np.array(self.encode(new_mat), dtype=np.float32)
 
-    return observation, reward, terminated, False, {}
+    return observation, reward
 
   def step(self, action):
-    observation, reward, terminated, _, _ = self.afterstate(self.state, action)
+    observation, reward = self.afterstate(self.state, action)
 
     new_mat = self.decode(observation)
 
-    if not terminated:
-        zero_idx = np.where(new_mat == 0)
+    zero_idx = np.where(new_mat == 0)
 
-        rand_new_tile = random.randrange(0,10)
-        if rand_new_tile == 0:
-            new_tile = 4
-        else:
-            new_tile = 2
-        rand_idx = random.randrange(0,len(zero_idx[0]))
-        new_mat[zero_idx[0][rand_idx], zero_idx[1][rand_idx]] = new_tile
+    if len(zero_idx[0]) == 0:
+      terminated = True
+    else:
+      rand_new_tile = random.randrange(0,10)
+      if rand_new_tile == 0:
+          new_tile = 4
+      else:
+          new_tile = 2
+      rand_idx = random.randrange(0,len(zero_idx[0]))
+      new_mat[zero_idx[0][rand_idx], zero_idx[1][rand_idx]] = new_tile
 
-    self.state = np.array(self.encode(new_mat), dtype=np.float32)
+      self.state = np.array(self.encode(new_mat), dtype=np.float32)
+
+      terminated = not(any(self.allowed_actions()))
 
     return self.state, reward, terminated, False, {}
 
   def allowed_actions(self):
-    a_size = int(np.sqrt(self.n_grid))
-    mat = self.state.reshape((a_size, a_size))
-    mat_0 = swipe(mat, 'left')
-    mat_1 = swipe(mat, 'right')
-    mat_2 = swipe(mat, 'up')
-    mat_3 = swipe(mat, 'down')
+    mat = self.decode(self.state)
+    mat_0, _ = swipe(mat, 'left')
+    mat_1, _ = swipe(mat, 'right')
+    mat_2, _ = swipe(mat, 'up')
+    mat_3, _ = swipe(mat, 'down')
 
     return [(mat != mat_0).any(), (mat != mat_1).any(), (mat != mat_2).any(), (mat != mat_3).any()]
 
