@@ -12,7 +12,7 @@ class gym2048(gym.Env):
     self.max_tile_log2 = int(np.log2(max_tile))
 
     # observation space (valid ranges for observations in the state)
-    self.observation_space = spaces.Box(shape=(self.max_tile_log2, 4, 4), low=0, high=1, dtype=np.float32)
+    self.observation_space = spaces.Box(shape=(self.max_tile_log2+1, 4, 4), low=0, high=1, dtype=np.float32)
 
     # valid actions:
     #   0 = left
@@ -30,20 +30,22 @@ class gym2048(gym.Env):
     # Input: 4x4 matrice
     # Output: 16x4x4 tensor
     # see https://www.jstage.jst.go.jp/article/ipsjjip/29/0/29_336/_pdf/-char/en
-    tensor = np.zeros((self.max_tile_log2,4,4), dtype=np.float32)
+    tensor = np.zeros((self.max_tile_log2+1,4,4), dtype=np.float32)
     for i in range(4):
       for j in range(4):
         if mat[i,j] > 0:
           k = int(np.log2(mat[i,j]))
           tensor[k,i,j] = 1
+        else: 
+          tensor[0,i,j] = 1
     return tensor
 
   def decode(self, tensor):
     # Create a 4x4 matrix where each position accumulates the decoded value
-    powers_of_two = 2 ** np.arange(self.max_tile_log2, dtype=np.float32)[:, None, None]  # Shape: (16, 1, 1)
+    powers_of_two = 2 ** np.arange(1,self.max_tile_log2+1, dtype=np.float32)[:, None, None]  # Shape: (16, 1, 1)
     
     # Multiply the input tensor with powers_of_two and sum over the first axis
-    mat = np.sum(tensor * powers_of_two, axis=0)  # Shape: (4, 4)
+    mat = np.sum(tensor[1:,:,:] * powers_of_two, axis=0)  # Shape: (4, 4)
     
     return mat
 
@@ -244,6 +246,14 @@ def check_game():
     test = np.array([0.,  0.,  8., 64., 0.,  4., 32.,  4., 0.,  0.,  0.,  8., 2.,  0.,  0., 4.]).reshape((4,4))
     result_down = np.array([0., 0., 0., 64., 0., 0., 0., 4., 0., 0., 8., 8., 2., 4., 32., 4.]).reshape((4,4))
     print(swipe(test,'down')[0]==result_down)
+
+    # Check encode / decode
+    print("\n Check encode / decode \n")
+    env = gym2048()
+    print(m)
+    print(env.encode(m))
+    print(env.decode(env.encode(m)))
+    print(env.decode(env.encode(m)) == m)
 
     # Check afterstate
     print("\n Check Afterstate \n")
