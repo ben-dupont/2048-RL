@@ -272,7 +272,7 @@ class TDL():
         # Sample from replay buffer
         if isinstance(self.replay_buffer, PrioritizedReplayBuffer):
             replay_data, indices, weights = self.replay_buffer.sample(batch_size)
-            weights = weights.to(device)
+            weights = weights.to(device=device, dtype=torch.float32)
         else:
             replay_data = self.replay_buffer.sample(batch_size)
             weights = 1
