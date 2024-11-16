@@ -56,7 +56,7 @@ class gym2048(gym.Env):
     while row_1 == row_2 and col_1 == col_2:
         row_2, col_2 = np.random.randint(0, 4, size=2)
 
-    tile_layer = random.randint(1,self.observation_space.shape[0]) if jump else 1
+    tile_layer = random.randint(1,self.observation_space.shape[0]-1) if jump else 1
 
     self.state[tile_layer, row_1, col_1] = 1
     self.state[0, row_2, col_2] = 1
@@ -110,7 +110,7 @@ class gym2048(gym.Env):
     """
     mat = self.decode(state)
     new_mat, reward = self._swipe(mat, self.act_dict[action])
-    observation = np.array(self.encode(new_mat), dtype=np.float32)
+    observation = self.encode(new_mat)
     return observation, float(reward)
 
   def step(self, action):
@@ -131,13 +131,19 @@ class gym2048(gym.Env):
     observation, reward = self.afterstate(self.state, action)
     zero_idx = np.argwhere(observation[0] == 1)
     
-    if zero_idx.size == 0:
+    if zero_idx.size == 0: # No empty cells left
       terminated = True
     else:
-      tile_layer = 2 if random.random() < 0.1 else 1 # 90% chance of 2, 10% chance of 4
+      # Decide the new tile's value: 90% chance for 2 (layer 1), 10% for 4 (layer 2)
+      tile_layer = 2 if random.random() < 0.1 else 1
+
+      # Choose a random empty cell to place the new tile
       rand_idx = random.choice(zero_idx)
+
+      # Update the state with the new tile
       observation[0, rand_idx[0], rand_idx[1]] = 0
       observation[tile_layer, rand_idx[0], rand_idx[1]] = 1
+
       self.state = observation
       terminated = not any(self.allowed_actions())
 

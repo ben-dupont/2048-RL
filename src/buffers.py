@@ -80,39 +80,14 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         # Update beta toward 1 over time
         self.beta = min(1.0, self.beta + self.beta_increment)
 
-        #return batch, weights
-        return batch, weights
+        return batch, indices, weights
 
-    def update_priorities(self, policy_network, target_network):
+    def update_priorities(self, indices, new_priorities):
         """
-        Update the priorities of the replay buffer based on the temporal difference (TD) errors.
+        Update the priorities of the replay buffer based on the TD errors.
 
-        Parameters:
-        policy_network (torch.nn.Module): The policy network used to estimate the current state values.
-        target_network (torch.nn.Module): The target network used to estimate the next state values.
-
-        Returns:
-        None
-
-        This function calculates the TD errors for the transitions stored in the replay buffer.
-        If rank-based prioritization is enabled, it sorts the TD errors and assigns priorities
-        inversely proportional to their ranks. Otherwise, it directly uses the TD errors as priorities,
-        adding a small epsilon value to avoid zero priorities.
+        Args:
+            indices (np.ndarray): The indices of the transitions to update.
+            new_priorities (np.ndarray): The new priorities corresponding to the indices.
         """
-        states = torch.tensor(self.observations).squeeze(1).to(self.device)
-        rewards = torch.tensor(self.rewards).to(self.device)
-        next_states = torch.tensor(self.next_observations).squeeze(1).to(self.device)
-
-        with torch.no_grad():
-            states_values = policy_network.forward(states)
-            next_states_values = target_network.forward(next_states)
-
-            td_errors = torch.abs(rewards + next_states_values - states_values).view(-1)
-
-            if self.rank_based:
-                sorted_indices = torch.argsort(td_errors, descending=True).to(self.device)
-                ranks = torch.empty_like(sorted_indices)
-                ranks[sorted_indices] = torch.arange(len(td_errors)).to(self.device)
-                self.priorities = (1/(ranks+1)).cpu().numpy()
-            else:
-                self.priorities = td_errors.cpu().numpy().flatten() + self.eps
+        self.priorities[indices] = new_priorities.squeeze() + self.eps
