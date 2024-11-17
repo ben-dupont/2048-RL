@@ -194,7 +194,7 @@ class gym2048(gym.Env):
       cpt += 1
       if model:
         with torch.no_grad():
-          action, _ = model.predict(observation=self.state)
+          action, _ = model.select_greedy_action(self.state)
         action = action.item()
       else:
         action = random.randrange(0,4)
@@ -206,7 +206,7 @@ class gym2048(gym.Env):
 
     if verbose:
       print("Final state:")
-      print(board)
+      print(board.astype(int))
       print("Max tile: %i" % max_tile)
       print("Score: %i" % cum_reward)
       print("Number of moves: %i" % cpt)
@@ -355,47 +355,32 @@ class gym2048(gym.Env):
     Returns:
     numpy.ndarray: A 1D numpy array of length 4 with all non-zero elements of the input array shifted to the left and zeros filled in the remaining positions.
     """
-    y = np.array([0] * 4)
-
-    idx = 0
-
-    for j in range(4):
-      if x[j] != 0:
-        y[idx] = x[j]
-        idx += 1
-
-    return y
+    non_zero = x[x != 0]
+    return np.pad(non_zero, (0, 4 - len(non_zero)), constant_values=0)
 
   def _merge(self, x):
-    """
-    Merges the tiles in a row or column for the 2048 game.
+      """
+      Merges the tiles in a row or column for the 2048 game
 
-    This function takes a list of integers representing the tiles in a row or column
-    and merges adjacent tiles that have the same value. The merged tile will have the
-    value of the sum of the two tiles, and the second tile will be set to zero. The
-    function also keeps track of the total value of the merged tiles.
+      Parameters:
+      x (numpy.ndarray): A 1D numpy array of length 4 containing integers representing the tiles.
 
-    Args:
-      x (list of int): A list of integers representing the tiles in a row or column.
+      Returns:
+      tuple:
+          - numpy.ndarray: A 1D numpy array of length 4 after merging the tiles.
+          - int: The total value of the merged tiles.
+      """
+      x = np.array(x)  # Ensure input is a NumPy array
+      merge_cpt = 0
 
-    Returns:
-      tuple: A tuple containing:
-        - y (list of int): The list of integers after merging the tiles.
-        - merge_cpt (int): The total value of the merged tiles.
-    """
-    y = x
+      # Iterate over the array and merge adjacent equal values
+      for j in range(len(x) - 1):
+          if x[j] != 0 and x[j] == x[j + 1]:  # Only merge non-zero tiles
+              x[j] *= 2
+              x[j + 1] = 0
+              merge_cpt += x[j]
 
-    merge_cpt = 0
-
-    for j in range(3):
-      if x[j] == x[j+1]:
-        y[j] = x[j] + x[j+1]
-        x[j+1] = 0
-        merge_cpt += y[j]
-      else:
-        y[j] = x[j]
-
-    return y, merge_cpt
+      return x, merge_cpt
 
   def _swipeLeft(self, x):
     """

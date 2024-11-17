@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import random
 import yaml
+import pickle
 from pympler import asizeof
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
@@ -232,7 +233,7 @@ class TDL():
                 check_gradient = i_timestep % check_gradient_freq == 0 and i_timestep > 1
                 use_target_network = target_network_update_freq > 0
                 if i_timestep % train_freq == 0:
-                    i_loss = self._optimize_model(optimizer, batch_size=batch_size, gamma=gamma, use_target_network=use_target_network, check_gradient=check_gradient, timestep=i_timestep, save_path=checkpoint_path)
+                    i_loss = self._optimize_model(optimizer, batch_size=batch_size, gamma=gamma, use_target_network=use_target_network, device=self.device, check_gradient=check_gradient, timestep=i_timestep, symmetry=use_symmetry, save_path=checkpoint_path)
                     loss = np.append(loss, i_loss)
 
                 # Update target network
@@ -245,10 +246,19 @@ class TDL():
             # Plot training progress
             plot_save = i_episode % checkpoint_freq == 0 and i_episode > 1
             self._plot_callback(loss, episode_rewards, episode_initial_estimated_value, max_tiles, epsilons, plot_save, checkpoint_path)
-            # Save model checkpoint
+            # Save model checkpoint and logs
             if i_episode % checkpoint_freq == 0 and i_episode > 1:
                 PATH = checkpoint_path + 'rl_model_%i_epsiodes.zip' % i_episode
                 torch.save(self.policy_network.state_dict(), PATH)
+                data = {
+                    'loss': loss,
+                    'episode_rewards': episode_rewards,
+                    'episode_initial_estimated_value': episode_initial_estimated_value,
+                    'max_tiles': max_tiles,
+                    'epsilons': epsilons
+                }
+                with open(checkpoint_path + 'logs.pkl' % i_episode, 'w') as file:
+                    pickle.dump(data, file)
 
     def _optimize_model(self, optimizer, batch_size=32, gamma=0.99, use_target_network=True, device="mps", check_gradient=False, timestep=0, symmetry=False, save_path='./'):
         """
@@ -387,7 +397,7 @@ class TDL():
         # Assign same target values and weights (for prioritized experience replay) for all symmetric states
         states_target_values = states_target_values.repeat(8, 1)
         if type(weights) == torch.Tensor:
-            weights = weights.repeat(8, 1)
+            weights = weights.repeat(8)
             weights = weights / 8
 
         return states_current_values, states_target_values, weights
