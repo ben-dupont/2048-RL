@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import yaml
 import pickle
+import logging
 from pympler import asizeof
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
@@ -129,6 +130,15 @@ class TDL():
         # Create folder for checkpoints
         os.makedirs(checkpoint_path, exist_ok=True)
 
+        # Initialize logging
+        logging.basicConfig(
+            filename=checkpoint_path+'training.log',         # Log file name
+            level=logging.INFO,              # Logging level
+            format='%(asctime)s - %(message)s',  # Format for log messages
+            datefmt='%Y-%m-%d %H:%M:%S'      # Date format
+        )
+        logging.info("Training started.")
+
         # Save training parameters to folder
         training_parameters = {
             "total_timesteps": total_timesteps,
@@ -248,6 +258,7 @@ class TDL():
             self._plot_callback(loss, episode_rewards, episode_initial_estimated_value, max_tiles, epsilons, plot_save, checkpoint_path)
             # Save model checkpoint and logs
             if i_episode % checkpoint_freq == 0 and i_episode > 1:
+                logging.info(f"Episode {i_episode} - Reward: {episode_rewards[-1]} - Max Tile: {max_tiles[-1]}")
                 PATH = checkpoint_path + 'rl_model_%i_epsiodes.zip' % i_episode
                 torch.save(self.policy_network.state_dict(), PATH)
                 data = {
@@ -257,7 +268,7 @@ class TDL():
                     'max_tiles': max_tiles,
                     'epsilons': epsilons
                 }
-                with open(checkpoint_path + 'logs.pkl' % i_episode, 'w') as file:
+                with open(checkpoint_path + 'logs.pkl', 'wb') as file:
                     pickle.dump(data, file)
 
     def _optimize_model(self, optimizer, batch_size=32, gamma=0.99, use_target_network=True, device="mps", check_gradient=False, timestep=0, symmetry=False, save_path='./'):
