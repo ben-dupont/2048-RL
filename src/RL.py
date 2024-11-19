@@ -56,7 +56,7 @@ class TDL():
         """
         self.policy_network.train()
 
-    def select_greedy_action(self, state, device="mps", verbose=False):
+    def select_greedy_action(self, state, device="mps"):
         """
         Predict the best action for a given state using the greedy policy network.
         Args:
@@ -93,6 +93,46 @@ class TDL():
         best_action = np.argmax(evaluate)
         
         return best_action, evaluate[best_action]
+    
+    def select_expectimax_action(self, observation, depth=2, maximizing_player=True, device="mps"):
+        """
+        Selects an action using the Expectimax algorithm.
+
+        Parameters:
+        observation (array-like): The current state of the environment.
+        depth (int, optional): The depth of the search tree. Default is 2.
+        maximizing_player (bool, optional): Flag to indicate if the current turn is the player's turn (True) or the environment's turn (False). Default is True.
+        device (str, optional): The device to run the tensor operations on. Default is "mps".
+
+        Returns:
+        tuple: A tuple containing:
+            - best_action (int or None): The best action to take in the current state. None if it's the environment's turn.
+            - value (float): The value of the best action or the expected value of the state.
+        """
+        isAllowed = self.env.unwrapped.allowed_actions(observation)
+
+        if depth == 0 or any(isAllowed) == False: # Evaluate value of the state
+            state_tensor = torch.tensor(observation).to(device).unsqueeze(0)
+            return None, self.policy_network.forward(state_tensor).squeeze(1).detach().cpu().numpy()
+
+        if maximizing_player:  # Player's turn (maximization) // Evaluate all actions and return best one with its value
+            values = np.array([])
+            for action in range(self.env.action_space.n):  # e.g., [up, down, left, right]
+                if isAllowed[action]:
+                    afterstate, reward = self.env.unwrapped.afterstate(observation, action)
+                    _, best_value = self.select_expectimax_action(afterstate, depth=depth-1, maximizing_player=False, device=device)
+                    values = np.append(values, reward + best_value)
+                else:
+                    values = np.append(values, -np.Inf)
+            best_action = np.argmax(values)
+            return best_action, values[best_action]
+        else:  # Environment's turn (expectation) // Evaluate all possible states with their probabilities
+            next_states = self.env.unwrapped.all_possible_next_states(observation)
+            expected_value = 0
+            for (prob, next_state) in next_states:
+                _, value = self.select_expectimax_action(next_state, depth=depth-1, maximizing_player=True, device=device)
+                expected_value += prob * value
+            return None, expected_value
 
     def learn(self, total_timesteps, learning_rate=0.0005, gamma=0.99, buffer_size=50000, exploration_initial_eps=1.0, 
         exploration_final_eps=0.02, exploration_fraction=0.1, train_freq=1, batch_size=32, target_network_update_freq=500, 

@@ -50,6 +50,7 @@ class gym2048(gym.Env):
 
     # set the initial state to a flattened 4x4 grid with two randomly Twos
     self.state = np.zeros((self.observation_space.shape[0],4,4), dtype=np.float32)
+    self.state[0, :, :] = 1
 
     row_1, col_1 = np.random.randint(0, 4, size=2)
     row_2, col_2 = np.random.randint(0, 4, size=2)
@@ -59,7 +60,9 @@ class gym2048(gym.Env):
     tile_layer = random.randint(1,self.observation_space.shape[0]-1) if jump else 1
 
     self.state[tile_layer, row_1, col_1] = 1
-    self.state[0, row_2, col_2] = 1
+    self.state[0, row_1, col_1] = 0
+    self.state[1, row_2, col_2] = 1
+    self.state[0, row_2, col_2] = 0
 
     return self.state, {}
 
@@ -113,7 +116,7 @@ class gym2048(gym.Env):
     observation = self.encode(new_mat)
     return observation, float(reward)
 
-  def step(self, action):
+  def step(self, action, state=None):
     """
     Execute one step in the environment based on the given action.
 
@@ -128,7 +131,8 @@ class gym2048(gym.Env):
       - truncated (bool): Always False, included for compatibility with OpenAI Gym.
       - info (dict): Additional information, currently empty.
     """
-    observation, reward = self.afterstate(self.state, action)
+    state = state if state is not None else self.state
+    observation, reward = self.afterstate(state, action)
     zero_idx = np.argwhere(observation[0] == 1)
     
     if zero_idx.size == 0: # No empty cells left
@@ -147,9 +151,9 @@ class gym2048(gym.Env):
       self.state = observation
       terminated = not any(self.allowed_actions())
 
-    return self.state, reward, terminated, False, {}
+    return observation, reward, terminated, False, {}
 
-  def allowed_actions(self):
+  def allowed_actions(self, state=None):
     """
     Determine the allowed actions in the current state of the 2048 game.
 
@@ -157,11 +161,15 @@ class gym2048(gym.Env):
     by simulating each move and comparing the resulting matrices to the current state matrix to 
     see if they are different.
 
+    Args:
+      state (any): The current state of the game, encoded as a (16,4,4) tensor.
+
     Returns:
       list of bool: A list of four boolean values indicating whether each move (left, right, up, down)
               is allowed. True means the move is allowed, and False means it is not.
     """
-    mat = self.decode(self.state)
+    state = state if state is not None else self.state
+    mat = self.decode(state)
     mat_0, _ = self._swipe(mat, 'left')
     mat_1, _ = self._swipe(mat, 'right')
     mat_2, _ = self._swipe(mat, 'up')
@@ -169,12 +177,52 @@ class gym2048(gym.Env):
 
     return [(mat != mat_0).any(), (mat != mat_1).any(), (mat != mat_2).any(), (mat != mat_3).any()]
 
-  def playOneGame(self, model=None, verbose=True):
+  def all_possible_next_states(self, afterstate):
+    """
+    Generate all possible next states from the given afterstate.
+
+    This function takes an afterstate (a state after a move has been made) and 
+    generates all possible next states by placing a '2' or a '4' in each empty 
+    cell (represented by a '1' in the afterstate). The probabilities of placing 
+    a '2' or a '4' are 0.9 and 0.1 respectively, distributed evenly among all 
+    empty cells.
+
+    Args:
+      afterstate (np.ndarray): The current state of the game after a move has 
+                   been made. It is a 3D numpy array where the 
+                   first dimension represents the different 
+                   possible values (empty, 2, 4) and the other 
+                   two dimensions represent the game grid.
+
+    Returns:
+      list of tuples: A list of tuples where each tuple contains a probability 
+              and the corresponding next state. The next state is a 
+              3D numpy array similar to the input afterstate.
+    """
+    possible_next_states = []
+    zero_idx = np.argwhere(afterstate[0] == 1)
+    n_zero = zero_idx.shape[0]
+    if n_zero > 0:
+      prob_2 = 0.9 / n_zero
+      prob_4 = 0.1 / n_zero
+      for idx in zero_idx:
+        next_state_2 = afterstate.copy()
+        next_state_2[0, idx[0], idx[1]] = 0
+        next_state_2[1, idx[0], idx[1]] = 1
+        possible_next_states.append((prob_2, next_state_2))
+        next_state_4 = afterstate.copy()
+        next_state_4[0, idx[0], idx[1]] = 0
+        next_state_4[2, idx[0], idx[1]] = 1
+        possible_next_states.append((prob_4, next_state_4))
+    return possible_next_states
+
+  def playOneGame(self, policy=None, verbose=True, **kwargs):
     """
     Plays one game of 2048 with random actions until the game terminates.
 
     Parameters:
     model (optional): The model to be evaluated. If None, random actions will be taken.
+    policy (int): The policy to be used for action selection. 1 = greedy, 2+ = expectimax with the specified depth. Default is 1.
     verbose (bool): If True, prints the final state of the game board, the cumulative reward, and the number of steps taken. Default is True.
 
     Returns:
@@ -192,14 +240,18 @@ class gym2048(gym.Env):
 
     while terminated == False:
       cpt += 1
-      if model:
+      if policy:
         with torch.no_grad():
-          action, _ = model.select_greedy_action(self.state)
+          action, _ = policy(self.state, **kwargs)
         action = action.item()
       else:
         action = random.randrange(0,4)
       observation, reward, terminated, _, _ = self.step(action)
       cum_reward += reward
+
+      if verbose and cpt % 100 == 0:
+        print("Step: %i" % cpt)
+        print(self.decode(observation).astype(int))
 
     board = self.decode(observation)
     max_tile = np.max(board)
@@ -212,12 +264,13 @@ class gym2048(gym.Env):
       print("Number of moves: %i" % cpt)
     return max_tile, cpt
 
-  def evaluate(self, model=None, n_games=1000):
+  def evaluate(self, model=None, policy=1, n_games=1000):
     """
     Evaluate the performance of a given model by playing a specified number of games.
 
     Parameters:
     model (optional): The model to be evaluated. If None, random actions will be taken.
+    policy (int): The policy to be used for action selection. 1 = greedy, 2+ = expectimax with the specified depth. Default is 1.
     n_games (int): The number of games to be played for evaluation. Default is 1000.
 
     Returns:
@@ -229,7 +282,7 @@ class gym2048(gym.Env):
     n_steps = np.array([])
 
     for k in tqdm(range(n_games)):
-      max_tile, cpt = self.playOneGame(model=model, verbose=False)
+      max_tile, cpt = self.playOneGame(model=model, policy=policy, verbose=False)
       max_tiles = np.append(max_tiles, max_tile)
       n_steps = np.append(n_steps, cpt)
 
@@ -333,7 +386,7 @@ class gym2048(gym.Env):
       print(env.decode(env.afterstate(state, 3)[0]) == mm_down)
 
       # Play one game
-      print("\n Playing one random game \n")
+      print("\n Playing one random game\n")
       self.playOneGame()
 
   def _get_obs(self):
