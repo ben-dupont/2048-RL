@@ -264,7 +264,7 @@ class gym2048(gym.Env):
       print("Number of moves: %i" % cpt)
     return max_tile, cpt
 
-  def evaluate(self, model=None, policy=1, n_games=1000):
+  def evaluate(self, policy=None, n_games=1000, **kwargs):
     """
     Evaluate the performance of a given model by playing a specified number of games.
 
@@ -282,7 +282,7 @@ class gym2048(gym.Env):
     n_steps = np.array([])
 
     for k in tqdm(range(n_games)):
-      max_tile, cpt = self.playOneGame(model=model, policy=policy, verbose=False)
+      max_tile, cpt = self.playOneGame(policy=policy, verbose=False, **kwargs)
       max_tiles = np.append(max_tiles, max_tile)
       n_steps = np.append(n_steps, cpt)
 
@@ -408,8 +408,13 @@ class gym2048(gym.Env):
     Returns:
     numpy.ndarray: A 1D numpy array of length 4 with all non-zero elements of the input array shifted to the left and zeros filled in the remaining positions.
     """
-    non_zero = x[x != 0]
-    return np.pad(non_zero, (0, 4 - len(non_zero)), constant_values=0)
+    result = np.zeros_like(x)
+    non_zero_count = 0
+    for value in x:
+        if value != 0:
+            result[non_zero_count] = value
+            non_zero_count += 1
+    return result
 
   def _merge(self, x):
       """
@@ -435,7 +440,59 @@ class gym2048(gym.Env):
 
       return x, merge_cpt
 
-  def _swipeLeft(self, x):
+  def _swipeLeft(self, row):
+    """
+    Swipe a row to the left according to the rules of the 2048 game.
+
+    This function takes a row of the 2048 game board, removes zeros, and combines
+    adjacent tiles with the same value by summing them. The resulting row is then
+    padded with zeros to maintain the original length of 4.
+
+    Parameters:
+    row (numpy.ndarray): A 1D numpy array of length 4 representing a row of the 2048 game board.
+
+    Returns:
+    tuple: A tuple containing the updated row after the left swipe and the count of merges performed.
+    """
+    row = row[row != 0] # remove zeros
+    l = len(row)
+    merge_cpt = 0
+
+    if l == 0:
+        return np.zeros(4, dtype=np.float32), 0
+    elif l == 1:
+        return np.array([row[0], 0, 0, 0]), 0
+    elif l == 2:
+        if row[0] == row[1]:
+            #return np.concatenate((row[0]*2, np.zeros(3, dtype=np.float32))), row[0]*2
+            return np.array([row[0]*2, 0, 0, 0]), row[0]*2
+        else:
+            #return np.concatenate((row, np.zeros(2, dtype=np.float32))), 0
+            return np.array([row[0], row[1], 0, 0]), 0
+    elif l == 3:
+        if row[0] == row[1]:
+            #return np.concatenate((row[0]*2, row[2], np.zeros(2, dtype=np.float32))), row[0]*2
+            return np.array([row[0]*2, row[2], 0, 0]), row[0]*2
+        elif row[1] == row[2]:
+            #return np.concatenate((row[0], row[1]*2, np.zeros(2, dtype=np.float32))), row[1]*2
+            return np.array([row[0], row[1]*2, 0, 0]), row[1]*2
+        else:
+            #return np.concatenate((row, np.zeros(1, dtype=np.float32))), 0
+            return np.array([row[0], row[1], row[2], 0]), 0
+    else:
+        if row[0] == row[1]:
+            if row[2] == row[3]:
+                return np.array([row[0]*2, row[2]*2, 0, 0]), row[0]*2 + row[2]*2
+            else:
+                return np.array([row[0]*2, row[2], row[3], 0]), row[0]*2
+        elif row[1] == row[2]:
+            return np.array([row[0], row[1]*2, row[3], 0]), row[1]*2
+        elif row[2] == row[3]:
+            return np.array([row[0], row[1], row[2]*2, 0]), row[2]*2
+        else:
+            return row, 0
+
+  def _swipeLeft_old(self, x):
     """
     Simulates a left swipe action on the game board.
 

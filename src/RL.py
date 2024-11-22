@@ -108,12 +108,13 @@ class TDL():
         tuple: A tuple containing:
             - best_action (int or None): The best action to take in the current state. None if it's the environment's turn.
             - value (float): The value of the best action or the expected value of the state.
-        """
+        """        
         isAllowed = self.env.unwrapped.allowed_actions(observation)
 
         if depth == 0 or any(isAllowed) == False: # Evaluate value of the state
             state_tensor = torch.tensor(observation).to(device).unsqueeze(0)
-            return None, self.policy_network.forward(state_tensor).squeeze(1).detach().cpu().numpy()
+            expected_value = self.policy_network.forward(state_tensor).squeeze(1).detach().cpu().numpy()
+            return None, expected_value
 
         if maximizing_player:  # Player's turn (maximization) // Evaluate all actions and return best one with its value
             values = np.array([])
