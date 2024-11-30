@@ -14,18 +14,10 @@ import torch.optim as optim
 from stable_baselines3.common.buffers import ReplayBuffer
 from src.buffers import PrioritizedReplayBuffer
 
-class TDL():
-    def __init__(self, network, env, device="mps"):
+class BaseRL():
+    def __init__(self, env, device="mps"):
         self.env = env
         self.device = device
-
-        # Define policy and target networks
-        self.policy_network = network(self.env.observation_space).to(device)
-        self.target_network = network(self.env.observation_space).to(device)
-
-        # Initialize policy and target networks with trunctated normal distribution
-        self.policy_network.apply(network.truncated_normal_init)
-        self.target_network.apply(network.truncated_normal_init)
 
     def load_network(self, network_dict_path):
         """

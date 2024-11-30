@@ -78,3 +78,72 @@ class CNN22(nn.Module):
             nn.init.trunc_normal_(m.weight, mean=0, std=0.1, a=-2 * 0.1, b=2 * 0.1)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)  # Initialize biases to zero (or another value if needed)
+
+class CNN22_ActorCritic(nn.Module):
+    def __init__(self, observation_space: spaces.Box, action_dim: int, shared_features_extractor=False):
+        super().__init__()
+
+        self.shared_features_extractor = shared_features_extractor
+
+        # Extract observation dimensions
+        n_input_channels = observation_space.shape[0]
+
+        # CNN layers
+        self.cnn_actor = nn.Sequential(
+            nn.Conv2d(n_input_channels, 256, kernel_size=2, stride=1),  # 1st conv layer
+            nn.ReLU(),
+            nn.Conv2d(256, 512, kernel_size=2, stride=1),  # 2nd conv layer
+            nn.ReLU(),
+            nn.Flatten()
+        )
+
+        if shared_features_extractor:
+            self.cnn_critic = self.cnn_actor
+        else:
+            self.cnn_critic = nn.Sequential(
+                nn.Conv2d(n_input_channels, 256, kernel_size=2, stride=1),  # 1st conv layer
+            nn.ReLU(),
+            nn.Conv2d(256, 512, kernel_size=2, stride=1),  # 2nd conv layer
+                nn.ReLU(),
+                nn.Flatten()
+            )
+
+        # Calculate the output size of the CNN
+        with torch.no_grad():
+            sample_input = torch.zeros(1, *observation_space.shape)
+            n_flatten = self.cnn_actor(sample_input).shape[1]
+
+        # Fully connected layers after CNN
+        self.fc_actor = nn.Sequential(
+            nn.Linear(n_flatten, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+        )
+
+        if shared_features_extractor:
+            self.fc_critic = self.fc_actor
+        else:
+            self.fc_critic = nn.Sequential(
+                nn.Linear(n_flatten, 1024),
+            nn.ReLU(),
+                nn.Linear(1024, 256),
+                nn.ReLU(),
+            )
+
+        # Actor head
+        self.actor_head = nn.Sequential(
+            nn.Linear(256, action_dim),
+            nn.Softmax(dim=-1)
+        )
+
+        # Critic head
+        self.critic_head = nn.Linear(256, 1)
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        # Forward pass through CNN and FC layers
+        if self.shared_features_extractor:
+            shared = self.fc_actor(self.cnn_actor(observations))
+            return self.actor_head(shared), self.critic_head(shared)
+        else:
+            return self.actor_head(self.fc_actor(self.cnn_actor(observations))), self.critic_head(self.fc_critic(self.cnn_critic(observations)))
